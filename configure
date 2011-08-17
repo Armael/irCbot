@@ -1,0 +1,22 @@
+#!/bin/sh
+
+WITH_MPD="mpdclient"
+
+case "$1" in
+    --without-mpd)
+        WITH_MPD=""; shift;;
+        *) break;;
+esac
+
+[ -n "$WITH_MPD" ] && CFLAGS="$CFLAGS -DWITH_MPD"
+[ -n "$WITH_MPD" ] && LIBS="-l$WITH_MPD"
+
+cat > Makefile << EOF
+CFLAGS+=$CFLAGS
+LIBS+=$LIBS
+
+EOF
+
+cat Makefile.in >> Makefile
+
+echo "You can run 'make' now :)"

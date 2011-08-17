@@ -9,90 +9,16 @@
 
 #include <libircclient/libircclient.h>
 
-#define MAX_ANS 20
+#ifdef WITH_MPD
+#include <mpd/client.h>
+#include <mpd/status.h>
+#include <mpd/tag.h>
+#endif
 
-typedef struct Answer {
-    /* La regex représentant la condition de réponse */
-    char* regex;
-    /* Un tableau contenant les réponses possibles dans
-    le cas où la chaine en entrée convient.
-    Si answers_nb > 1, la réponse est tirée au hasard
-    parmi celles disponibles */
-    int answers_nb;
-    char* answers[MAX_ANS];
-} Answer;
-
-/* Structures décrivant les commandes prédéfinies */
-
-typedef struct Cmd {
-    char* cmd_str;
-    void (*f)(irc_session_t* session,
-              const char* cmd,
-              const char* origin,
-              char* args);
-} Cmd;
-
-/* Structure définissant une ligne dans l'historique */
-
-typedef struct Line {
-    char* author;
-    char* content;
-} Line;
-
-/* Prototypes */
-int mod(int a, int b);
-char* tolower_str(char* str);
-char* skip_blanks(const char* str);
-char* pick_string(char** strings, int strings_nb);
-void addlog (const char * fmt, ...);
-void dump_event(irc_session_t* session,
-                const char* event,
-                const char* origin,
-                const char **params,
-                unsigned int count);
-void log_and_print(const char* fmt, ...);
-void log_and_print_said(const char* name, const char* fmt, ...);
-void debug_print_log();
-void die(int sig);
-void parse_answers();
-int run_cmd(char* raw_line, irc_session_t* session,
-                            const char* origin);
-void event_join(irc_session_t* session,
-                const char* event,
-                const char* origin,
-                const char **params,
-                unsigned int count);
-void event_part(irc_session_t* session,
-                const char* event,
-                const char* origin,
-                const char **params,
-                unsigned int count);
-void event_connect(irc_session_t* session,
-                   const char* event,
-                   const char* origin,
-                   const char **params,
-                   unsigned int count);
-void event_privmsg(irc_session_t* session,
-                   const char* event,
-                   const char* origin,
-                   const char **params,
-                   unsigned int count);
-void event_channel(irc_session_t* session,
-                   const char* event,
-                   const char* origin,
-                   const char **params,
-                   unsigned int count);
-
-
-#define LOG_MAX_LINES 10
-static Line log[LOG_MAX_LINES];
-static int log_pos = 0; /* Indicateur de la prochaine
-ligne à remplir du log, indice pour log[] */
-static int log_lines_nb = 0; /* Nombre de lignes
-qui sont dans le log */
-
+#include "bot.h"
 #include "config.h"
 #include "commands.h"
+extern Cmd cmds[];
 
 /* Modulo envoyant les négatifs en positif */
 int mod(int a, int b)
@@ -240,7 +166,7 @@ Retourne 1 si une commande était présente et a été exécutée,
 int run_cmd(char* raw_line, irc_session_t* session,
                             const char* origin)
 {
-    int cmd_nb = sizeof(cmds)/sizeof(Cmd);
+    int cmd_nb = get_cmd_nb();
     int i;
     Cmd* cur_cmd = NULL;
     for(i=0; i<cmd_nb; i++) {

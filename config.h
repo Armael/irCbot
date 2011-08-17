@@ -1,5 +1,8 @@
+#ifndef H_CONFIG
+#define H_CONFIG
+
 static const char* server        = "irc.freenode.net";
-static const char* channel       = "#channel";
+static const char* channel       = "#arch-fr-off";
 static const char* botnick       = "Merena";
 static const char* master_origin = "Armael!~Armael@unaffiliated/armael";
 
@@ -28,3 +31,5 @@ static Answer answers[] = { { "Merena.*bot",
                             }
                           };
 static const int answers_nb = 3;
+
+#endif
