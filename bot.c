@@ -2,42 +2,24 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <signal.h>
 #include <ctype.h>
 #include <time.h>
+#include <regex.h>
 
 #include <libircclient/libircclient.h>
 
-/* Structures décrivant les réponses prédéfinies */
-typedef enum Where {
-    STARTS_WITH,
-    DOESNT_START_WITH,
-    CONTAINS,
-    DOESNT_CONTAIN,
-    ENDS_WITH,
-    DOESNT_END_WITH
-} Where;
-
-/* Une condition de filtrage sur une chaine de
-caractères. La casse de str ainsi que de la chaine
-qui sera donnée en entrée n'importent pas */
-typedef struct Match_cond {
-    Where pos;
-    char* str;
-} Match_cond;
+#define MAX_ANS 20
 
 typedef struct Answer {
-    /* L'ensemble de conditions représenté par
-    une condition Match_cond que doit satisfaire la chaine
-    en entrée. Si cond_nb == 0, la chaine en entrée
-    convient systématiquement */
-    Match_cond* conditions;
-    int cond_nb;
+    /* La regex représentant la condition de réponse */
+    char* regex;
     /* Un tableau contenant les réponses possibles dans
     le cas où la chaine en entrée convient.
     Si answers_nb > 1, la réponse est tirée au hasard
     parmi celles disponibles */
-    char** answers_str;
     int answers_nb;
+    char* answers[MAX_ANS];
 } Answer;
 
 /* Structures décrivant les commandes prédéfinies */
@@ -70,6 +52,8 @@ void dump_event(irc_session_t* session,
                 unsigned int count);
 void log_and_print(const char* fmt, ...);
 void log_and_print_said(const char* name, const char* fmt, ...);
+void debug_print_log();
+void die(int sig);
 void parse_answers();
 int run_cmd(char* raw_line, irc_session_t* session,
                             const char* origin);
@@ -99,11 +83,6 @@ void event_channel(irc_session_t* session,
                    const char **params,
                    unsigned int count);
 
-#include "config.h"
-#include "commands.h"
-
-static int answers_nb = 0;
-static Answer* answers;
 
 #define LOG_MAX_LINES 10
 static Line log[LOG_MAX_LINES];
@@ -111,6 +90,9 @@ static int log_pos = 0; /* Indicateur de la prochaine
 ligne à remplir du log, indice pour log[] */
 static int log_lines_nb = 0; /* Nombre de lignes
 qui sont dans le log */
+
+#include "config.h"
+#include "commands.h"
 
 /* Modulo envoyant les négatifs en positif */
 int mod(int a, int b)
@@ -221,109 +203,33 @@ void log_and_print_said(const char* name, const char* fmt, ...)
     log_pos = (log_pos+1)%LOG_MAX_LINES;
 }
 
-/* Parsage du tableau answers_str de la conf */
-
-void parse_answers()
+void debug_print_log()
 {
-    int str_nb = sizeof(answers_str)/sizeof(char*);
-
-    if(answers_str != NULL) {
-        answers_nb = 1;
+    int i, pos = mod(log_pos-1, LOG_MAX_LINES);
+    printf("log_lines_nb : %d\n", log_lines_nb);
+    printf("log_pos : %d\n", log_pos);
+    for(i = log_lines_nb; i > 0; i--, pos = mod(pos-1, LOG_MAX_LINES)) {
+        printf("log: <%s> %s\n", log[pos].author, log[pos].content);
     }
-    int i, n = 0, new_line = 0;
-    for(i=0; i<str_nb; i++) {
-        if(answers_str[i] == NULL) {
-            n++, new_line = 1;
-        } else if(new_line && n%2 == 0) {
-            answers_nb++;
-            new_line = 0;
-        }
-    }
+}
 
-    answers = calloc(answers_nb, sizeof(Answer));
-
-    int first_part = 1; /* Savoir dans quelle partie
-    on se situe; match_cond ou answers_str */
-    int ans_id;
-    Answer* cur_ans = &answers[ans_id = 0];
-    int cond_nb = 0, ans_nb = 0;
-    /* Parcours pour remplir cond_nb et ans_nb */
-    for(i=0; i<str_nb; i++) {
-        if(answers_str[i] == NULL) {
-            first_part = !first_part;
-            if(!first_part == 0) {
-                cur_ans->cond_nb = cond_nb;
-                cur_ans->answers_nb = ans_nb;
-                cur_ans = &answers[++ans_id];
-                cond_nb = 0, ans_nb = 0;
-            }
-        } else {
-            if(first_part) {
-                cond_nb++;
-            } else {
-                ans_nb++;
-            }
-        }
+void free_log()
+{
+    int i, pos = mod(log_pos-1, LOG_MAX_LINES);
+    for(i = log_lines_nb; i > 0; i--, pos = mod(pos-1, LOG_MAX_LINES)) {
+        free(log[pos].author);
+        free(log[pos].content);
     }
-    cur_ans->cond_nb = cond_nb;
-    cur_ans->answers_nb = ans_nb;
+}
 
-    first_part = 1;
-    cur_ans = &answers[ans_id = 0];
-    int cond_id = 0;
-    Match_cond* cur_cond;
-    int ans_str_id = 0;
-    char** cur_ans_str;
-    for(i=0; i < str_nb; i++) {
-        if(answers_str[i] == NULL) {
-            first_part = !first_part;
-            if(!first_part == 0 && ans_id < answers_nb) {
-                cur_ans = &answers[++ans_id];
-                cond_id = 0, ans_str_id = 0;
-            }
-        } else {
-            if(cur_ans->conditions == NULL) {
-                cur_ans->conditions = malloc(cur_ans->cond_nb
-                                      *sizeof(Match_cond));
-                cur_cond = &(cur_ans->conditions[cond_id = 0]);
-            }
-            if(cur_ans->answers_str == NULL) {
-                cur_ans->answers_str = malloc(cur_ans->answers_nb
-                                       *sizeof(char*));
-                cur_ans_str = &(cur_ans->answers_str[ans_str_id = 0]);
-            }
-            if(first_part) {
-                if(strstr(answers_str[i], "STARTS_WITH") == answers_str[i]) {
-                    cur_cond->pos = STARTS_WITH;
-                    cur_cond->str = tolower_str(strdup(&answers_str[i][strlen("STARTS_WITH ")]));
-                } else if(strstr(answers_str[i], "DOESNT_START_WITH") == answers_str[i]) {
-                    cur_cond->pos = DOESNT_START_WITH;
-                    cur_cond->str = tolower_str(strdup(&answers_str[i][strlen("DOESNT_START_WITH ")]));
-                } else if(strstr(answers_str[i], "CONTAINS") == answers_str[i]) {
-                    cur_cond->pos = CONTAINS;
-                    cur_cond->str = tolower_str(strdup(&answers_str[i][strlen("CONTAINS ")]));
-                } else if(strstr(answers_str[i], "DOESNT_CONTAIN") == answers_str[i]) {
-                    cur_cond->pos = DOESNT_CONTAIN;
-                    cur_cond->str = tolower_str(strdup(&answers_str[i][strlen("DOESNT_CONTAIN ")]));
-                } else if(strstr(answers_str[i], "ENDS_WITH") == answers_str[i]) {
-                    cur_cond->pos = ENDS_WITH;
-                    cur_cond->str = tolower_str(strdup(&answers_str[i][strlen("ENDS_WITH ")]));
-                } else if(strstr(answers_str[i], "DOESNT_END_WITH") == answers_str[i]) {
-                    cur_cond->pos = DOESNT_END_WITH;
-                    cur_cond->str = tolower_str(strdup(&answers_str[i][strlen("DOESNT_END_WITH ")]));
-                } else {
-                    printf("Erreur de syntaxe\n");
-                    exit(1);
-                }
-                if(cond_id < cur_ans->cond_nb)
-                    cur_cond = &(cur_ans->conditions[++cond_id]);
-            } else {
-                *cur_ans_str = strdup(answers_str[i]);
-                if(ans_str_id < cur_ans->answers_nb)
-                    cur_ans_str = &(cur_ans->answers_str[++ans_str_id]);
-            }
-        }
+void die(int sig)
+{
+    if(sig) {
+        printf("Signal %d reçu. ", sig);
     }
+    printf("Exiting...");
+    free_log();
+    exit(0);
 }
 
 /* Exécution d'une potentielle commande contenue dans la chaine
@@ -430,75 +336,32 @@ void event_channel(irc_session_t* session,
         return;
     }
 
-    char nick[20];
-    irc_target_get_nick(origin, nick, 20);
-    log_and_print_said(nick, params[1]);
-
     char* raw_line = tolower_str(skip_blanks(params[1]));
-    if(!run_cmd(raw_line, session, origin) && !silent) {
+    if(!run_cmd(raw_line, session, origin)) {
+        char nick[20];
         int i, answered;
         Answer* ans;
-        for(i=0, answered=0; i<answers_nb && !answered; i++) {
-            int match;
-            int j;
-            ans = &answers[i];
-            Match_cond* conditions = ans->conditions;
-            for(j=0, match=1; j < ans->cond_nb && match; j++) {
+        regex_t preg;
 
-                int offset;
-                switch (conditions[j].pos) {
-                    case STARTS_WITH :
-                    if(strstr(raw_line, conditions[j].str) != raw_line) {
-                        match=0;
-                    }
-                    break;
-                    case DOESNT_START_WITH :
-                    if(strstr(raw_line, conditions[j].str) == raw_line) {
-                        match=0;
-                    }
-                    break;
-                    case CONTAINS :
-                    if(strstr(raw_line, conditions[j].str) == NULL) {
-                        match = 0;
-                    }
-                    break;
-                    case DOESNT_CONTAIN :
-                    if(strstr(raw_line, conditions[j].str) != NULL) {
-                        match = 0;
-                    }
-                    break;
-                    case ENDS_WITH :
-                    offset = strlen(raw_line) - strlen(conditions[j].str);
-                    if(strstr(raw_line, conditions[j].str) != &raw_line[offset]) {
-                        match = 0;
-                    }
-                    break;
-                    case DOESNT_END_WITH :
-                    offset = strlen(raw_line) - strlen(conditions[j].str);
-                    if(strstr(raw_line, conditions[j].str) == &raw_line[offset]) {
-                        match = 0;
-                    }
-                    break;
+        irc_target_get_nick(origin, nick, 20);
+        log_and_print_said(nick, params[1]);
+
+        if(!silent) {
+            for(i=0, answered=0; i<answers_nb && !answered; i++) {
+                ans = &answers[i];
+                regcomp(&preg, ans->regex, REG_ICASE|REG_NOSUB|REG_EXTENDED);
+
+                if(regexec(&preg, raw_line, 0, NULL, 0) == 0) {
+                    char* answer_str = pick_string(ans->answers, ans->answers_nb);
+                    log_and_print_said(botnick, answer_str);
+                    irc_cmd_msg(session, channel, answer_str);
+                    answered = 1;
                 }
-            }
-            if(match) {
-                char* answer_str = pick_string(ans->answers_str, ans->answers_nb);
-                log_and_print_said(botnick, answer_str);
-                irc_cmd_msg(session, channel, answer_str);
-                answered = 1;
+                regfree(&preg);
             }
         }
     }
     free(raw_line);
-}
-
-void event_numeric(irc_session_t* session,
-                   unsigned int event,
-                   const char* origin,
-                   const char **params,
-                   unsigned int count)
-{
-    return;
 }
 
 int main(int argc, char** argv)
@@ -506,13 +369,17 @@ int main(int argc, char** argv)
     irc_callbacks_t callbacks;
     irc_session_t* s;
 
+    signal(SIGINT, die);
+    signal(SIGTERM, die);
+    signal(SIGSTOP, die);
+    signal(SIGHUP, die);
+
     memset(&callbacks, 0, sizeof(callbacks));
 
     callbacks.event_connect = event_connect;
     callbacks.event_join = event_join;
     callbacks.event_channel = event_channel;
     callbacks.event_privmsg = event_privmsg;
-    callbacks.event_numeric = event_numeric;
     callbacks.event_part = event_part;
     callbacks.event_quit = event_part;
 
@@ -526,8 +393,6 @@ int main(int argc, char** argv)
     callbacks.event_topic = dump_event;
     callbacks.event_kick = dump_event;
     callbacks.event_notice = dump_event;
-
-    parse_answers();
 
     s = irc_create_session(&callbacks);
 
@@ -543,5 +408,6 @@ int main(int argc, char** argv)
 
     irc_run(s);
 
+    die(0);
     return 1;
 }
