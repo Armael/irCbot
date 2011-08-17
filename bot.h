@@ -74,10 +74,10 @@ void event_channel(irc_session_t* session,
 
 
 #define LOG_MAX_LINES 10
-static Line log[LOG_MAX_LINES];
-static int log_pos = 0; /* Indicateur de la prochaine
+extern Line log_array[];
+extern int log_pos; /* Indicateur de la prochaine
 ligne à remplir du log, indice pour log[] */
-static int log_lines_nb = 0; /* Nombre de lignes
+extern int log_lines_nb; /* Nombre de lignes
 qui sont dans le log */
 
 #endif

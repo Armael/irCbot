@@ -128,7 +128,7 @@ void cmd_replace(irc_session_t* session, const char* cmd, const char* origin, ch
         int pos = mod(log_pos-1, LOG_MAX_LINES);
         /* Backlog pour trouver une ligne qui matche */
         for(j = log_lines_nb; j > 0; j--, pos = mod(pos-1, LOG_MAX_LINES)) {
-            if(regexec(&preg, log[pos].content, nmatch, pmatch, 0) == 0) {
+            if(regexec(&preg, log_array[pos].content, nmatch, pmatch, 0) == 0) {
                 char* match_str = NULL;
                 int start = pmatch[0].rm_so;
                 int end = pmatch[0].rm_eo;
@@ -136,25 +136,25 @@ void cmd_replace(irc_session_t* session, const char* cmd, const char* origin, ch
 
                 match_str = malloc((size + 1) * sizeof(char));
                 if(match_str) {
-                    strncpy(match_str, &(log[pos].content[start]), size);
+                    strncpy(match_str, &(log_array[pos].content[start]), size);
                     match_str[size] = '\0';
 
-                    char* new_str = malloc((strlen(log[pos].content)
+                    char* new_str = malloc((strlen(log_array[pos].content)
                                             - size + replace_str_len + 1) * sizeof(char));
                     if(new_str) {
                         int k;
-                        char* matched_pos = strstr(log[pos].content, match_str);
-                        for(k=0; &log[pos].content[k] != matched_pos; k++)
-                            new_str[k] = log[pos].content[k];
+                        char* matched_pos = strstr(log_array[pos].content, match_str);
+                        for(k=0; &log_array[pos].content[k] != matched_pos; k++)
+                            new_str[k] = log_array[pos].content[k];
                         new_str[k] = '\0';
                         strcat(new_str, replace_str);
-                        strcat(new_str, &log[pos].content[k+size]);
+                        strcat(new_str, &log_array[pos].content[k+size]);
 
-                        char* what_to_say = malloc((strlen(log[pos].author)
+                        char* what_to_say = malloc((strlen(log_array[pos].author)
                                                     + 3 + strlen(new_str) + 1)
                                                     * sizeof(char));
                         if(what_to_say) {
-                            sprintf(what_to_say, "<%s> %s", log[pos].author, new_str);
+                            sprintf(what_to_say, "<%s> %s", log_array[pos].author, new_str);
                             irc_cmd_msg(session, channel, what_to_say);
                             log_and_print_said(botnick, what_to_say);
                             free(what_to_say);

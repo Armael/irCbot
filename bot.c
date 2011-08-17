@@ -20,6 +20,12 @@
 #include "commands.h"
 extern Cmd cmds[];
 
+Line log_array[LOG_MAX_LINES];
+int log_pos = 0; /* Indicateur de la prochaine
+ligne à remplir du log, indice pour log[] */
+int log_lines_nb = 0; /* Nombre de lignes
+qui sont dans le log */
+
 /* Modulo envoyant les négatifs en positif */
 int mod(int a, int b)
 {
@@ -119,12 +125,12 @@ void log_and_print_said(const char* name, const char* fmt, ...)
     printf("<%s> %s\n", name, buf);
     addlog("<%s> %s\n", name, buf);
     if(log_lines_nb == LOG_MAX_LINES) {
-        free(log[log_pos].author);
-        free(log[log_pos].content);
+        free(log_array[log_pos].author);
+        free(log_array[log_pos].content);
         log_lines_nb--;
     }
-    log[log_pos].author = strdup(name);
-    log[log_pos].content = strdup(buf);
+    log_array[log_pos].author = strdup(name);
+    log_array[log_pos].content = strdup(buf);
     log_lines_nb++;
     log_pos = (log_pos+1)%LOG_MAX_LINES;
 }
@@ -135,7 +141,7 @@ void debug_print_log()
     printf("log_lines_nb : %d\n", log_lines_nb);
     printf("log_pos : %d\n", log_pos);
     for(i = log_lines_nb; i > 0; i--, pos = mod(pos-1, LOG_MAX_LINES)) {
-        printf("log: <%s> %s\n", log[pos].author, log[pos].content);
+        printf("log: <%s> %s\n", log_array[pos].author, log_array[pos].content);
     }
 }
 
@@ -143,8 +149,8 @@ void free_log()
 {
     int i, pos = mod(log_pos-1, LOG_MAX_LINES);
     for(i = log_lines_nb; i > 0; i--, pos = mod(pos-1, LOG_MAX_LINES)) {
-        free(log[pos].author);
-        free(log[pos].content);
+        free(log_array[pos].author);
+        free(log_array[pos].content);
     }
 }
 
