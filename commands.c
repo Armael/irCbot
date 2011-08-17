@@ -9,7 +9,7 @@
 #include "commands.h"
 
 Cmd cmds[] = {
-                 { "!help", "Liste les commandes", cmd_help },
+                 { "!help", "Liste les commandes ou donne la description d'une commande particulière passée en argument", cmd_help },
                  { "!quit", "Fait quitter le bot", cmd_quit },
                  { "!say", "Fait dire son argument au bot", cmd_say },
                  { "!silent", "Arguments : \"on\" ou \"off\" : passe le bot en mode silencieux ou bavard", cmd_silent },
