@@ -11,7 +11,7 @@ static int  silent = 0;
 static const char* log_file = "merena.log";
 
 static const char* start_msg_dest = "Nickserv";
-static const char* start_msg_content = "identify fgrqrr";
+static const char* start_msg_content = "identify xxxxxx";
 
 static Answer answers[] = { { "Merena.*bot",
                               1,
