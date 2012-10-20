@@ -154,7 +154,7 @@ void cmd_replace(irc_session_t* session, const char* cmd, const char* origin, ch
                                                     + 3 + strlen(new_str) + 1)
                                                     * sizeof(char));
                         if(what_to_say) {
-                            sprintf(what_to_say, "<%s> %s", log_array[pos].author, new_str);
+                            sprintf(what_to_say, "< %s> %s", log_array[pos].author, new_str);
                             irc_cmd_msg(session, channel, what_to_say);
                             log_and_print_said(botnick, what_to_say);
                             free(what_to_say);
