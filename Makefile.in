@@ -1,14 +1,14 @@
 CC = gcc
 CFLAGS+= -Wall -O0 -g -D_REENTRANT
-LIBS+= /usr/lib/libircclient.a -lnsl -lpthread
+LIBS+= -lircclient -lnsl -lpthread
 INCLUDES=-I/usr/share/libircclient/include
 
 TARGET=bot
 
 all: $(TARGET)
 
-bot:	bot.o
-	$(CC) -o bot bot.o $(LIBS)
+bot:	bot.o commands.o
+	$(CC) -o bot bot.o commands.o $(LIBS)
 
 clean:
 	rm *.o
