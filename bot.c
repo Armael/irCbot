@@ -122,8 +122,8 @@ void log_and_print_said(const char* name, const char* fmt, ...)
     vsnprintf(buf, sizeof(buf), fmt, va_alist);
     va_end(va_alist);
 
-    printf("<%s> %s\n", name, buf);
-    addlog("<%s> %s\n", name, buf);
+    printf("< %s> %s\n", name, buf);
+    addlog("< %s> %s\n", name, buf);
     if(log_lines_nb == LOG_MAX_LINES) {
         free(log_array[log_pos].author);
         free(log_array[log_pos].content);
@@ -138,10 +138,10 @@ void log_and_print_said(const char* name, const char* fmt, ...)
 void debug_print_log()
 {
     int i, pos = mod(log_pos-1, LOG_MAX_LINES);
-    printf("log_lines_nb : %d\n", log_lines_nb);
-    printf("log_pos : %d\n", log_pos);
+    printf("log_lines_nb : %d\n", log_lines_nb);
+    printf("log_pos : %d\n", log_pos);
     for(i = log_lines_nb; i > 0; i--, pos = mod(pos-1, LOG_MAX_LINES)) {
-        printf("log: <%s> %s\n", log_array[pos].author, log_array[pos].content);
+        printf("log: < %s> %s\n", log_array[pos].author, log_array[pos].content);
     }
 }
 
@@ -202,8 +202,10 @@ void event_join(irc_session_t* session,
     irc_target_get_nick(origin, nick, 20);
     log_and_print("-> %s a rejoint %s", nick, params[0]);
     if(!strcmp(nick, botnick) && !silent) {
-        irc_cmd_msg(session, params[0], "Salut !");
-        log_and_print_said(botnick, "Salut !");
+        if(join_msg) {
+            irc_cmd_msg(session, params[0], join_msg);
+            log_and_print_said(botnick, join_msg);
+	}
     }
 }
 

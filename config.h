@@ -12,6 +12,7 @@ static const char* log_file = "merena.log";
 
 static const char* start_msg_dest = "Nickserv";
 static const char* start_msg_content = "identify xxxxxx";
+static const char* join_msg = "Salut";
 
 static Answer answers[] = { { "Merena.*bot",
                               1,
@@ -20,7 +21,7 @@ static Answer answers[] = { { "Merena.*bot",
 /*                            { "Merena.*Merena",
                               4,
                               { "hm ?", "wut ?", "on parle de moi ?", "kesketatuveuxtebattre ?" }
-                            },*/
+			     },*/
                             { "^Merena.*\\?$",
                               4,
                               { "oui", "non", "je sais pas trop", "42" }
