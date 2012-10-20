@@ -151,7 +151,7 @@ void cmd_replace(irc_session_t* session, const char* cmd, const char* origin, ch
                         strcat(new_str, &log_array[pos].content[k+size]);
 
                         char* what_to_say = malloc((strlen(log_array[pos].author)
-                                                    + 3 + strlen(new_str) + 1)
+                                                    + 3 + strlen(new_str) + 2)
                                                     * sizeof(char));
                         if(what_to_say) {
                             sprintf(what_to_say, "< %s> %s", log_array[pos].author, new_str);
